@@ -10,6 +10,11 @@
  * (c) 2014 Muhammad Abdul-Rahim
  */
 
+#include <SPI.h>
+
+#define MOTOR_START	0x02
+#define MOTOR_STOP	0x01
+
 // Analog pins for sonar sensors
 int fSonar = A0;
 int lSonar = A1;
@@ -23,54 +28,73 @@ boolean turnBool = false;
 int baudRate = 9600;
 
 int motorDelay = 300;	// milliseconds
-//int motorSpeed = 125;
 
 int sensorValue = 0;
 const int sensorRange = 50;	// what is this in cm?
-const boolean debug = false;
+const boolean debug = true;
 
-// Initialization
+volatile boolean motorsAllowed = true;
+
 void setup()
 {
+	// initialize pins and motors
 	if( debug )
 		Serial.begin(baudRate);
 	pinMode(lMotor, OUTPUT);
 	pinMode(rMotor, OUTPUT);
 	setMotor(LOW,LOW);
+	
+	// initialize SPI
+	
 }
 
-// Main frame of execution
+// Interrupt Service Routing (ISR) for Serial Port Interface (SPI)
+ISR(SPI_STC_vect)
+{
+	byte b = SPDR;	// read byte from SPI Data Register
+	
+	if( b==MOTOR_START )
+		motorsAllowed = true;
+	else if( b==MOTOR_STOP )
+		motorsAllowed = false;
+}
+
 void loop()
 {
-	// Read front-facing sonar sensor
-	sensorValue = analogRead(fSonar);
-
-	if( debug )
-	{
-		Serial.println(sensorValue);
-		delay(motorDelay/2);
-	}
-	
-	// If front-facing sonar is blocked, handle directional turns
-	if( sensorValue <= sensorRange )
-	{
-		if( !turnBool )
-		{
-			setMotor(LOW,LOW);
-			delay(motorDelay);	// stop before turning
-			turnBool = true;
-		}
-		
-		// Determine turning direction
-		if( analogRead(rSonar) > analogRead(lSonar) )
-			setMotor(HIGH,LOW);	// turning right (left=HIGH, right=LOW)
-		else
-			setMotor(LOW,HIGH);	// turning left (left=LOW, right=HIGH)
-	}
+	if( !motorsAllowed )
+		setMotor(LOW,LOW);	// do not move
 	else
 	{
-		setMotor(HIGH,HIGH);
-		turnBool = false;
+		// Read front-facing sonar sensor
+		sensorValue = analogRead(fSonar);
+	
+		if( debug )
+		{
+			Serial.println(sensorValue);
+			delay(motorDelay/2);
+		}
+		
+		// If front-facing sonar is blocked, handle directional turns
+		if( sensorValue <= sensorRange )
+		{
+			if( !turnBool )
+			{
+				setMotor(LOW,LOW);
+				delay(motorDelay);	// stop before turning
+				turnBool = true;
+			}
+			
+			// Determine turning direction
+			if( analogRead(rSonar) > analogRead(lSonar) )
+				setMotor(HIGH,LOW);	// turning right (left=HIGH, right=LOW)
+			else
+				setMotor(LOW,HIGH);	// turning left (left=LOW, right=HIGH)
+		}
+		else
+		{
+			setMotor(HIGH,HIGH);		// move forward
+			turnBool = false;
+		}
 	}
 }
 
