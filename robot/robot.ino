@@ -1,6 +1,6 @@
 /**
  * Video-Based Target Identification System
- * Robot Subsystem
+ * Robot Subsystem (Blumenkranz)
  * 
  * Move forward while reading from sonar sensor
  * If within distance range, check left and right sonar
@@ -15,19 +15,19 @@ int fSonar = A0;
 int lSonar = A1;
 int rSonar = A2;
 
-// Digital pins for BJT (DC motors)
+// Digital pins for H-Bridge Logic (DC motors)
 int lMotor = 52;
 int rMotor = 50;
 
 boolean turnBool = false;
 int baudRate = 9600;
 
-int motorDelay = 300;
-int motorSpeed = 125;
+int motorDelay = 300;	// milliseconds
+//int motorSpeed = 125;
 
 int sensorValue = 0;
-const int sensorRange = 50;
-const boolean debug = true;
+const int sensorRange = 50;	// what is this in cm?
+const boolean debug = false;
 
 // Initialization
 void setup()
@@ -57,15 +57,15 @@ void loop()
 		if( !turnBool )
 		{
 			setMotor(LOW,LOW);
-			delay(motorDelay);
+			delay(motorDelay);	// stop before turning
 			turnBool = true;
 		}
 		
 		// Determine turning direction
 		if( analogRead(rSonar) > analogRead(lSonar) )
-			setMotor(HIGH,LOW);
+			setMotor(HIGH,LOW);	// turning right (left=HIGH, right=LOW)
 		else
-			setMotor(LOW,HIGH);
+			setMotor(LOW,HIGH);	// turning left (left=LOW, right=HIGH)
 	}
 	else
 	{
@@ -74,10 +74,9 @@ void loop()
 	}
 }
 
-// Write digital value to BJT (DC motor)
+// Write digital value to H-Bridge (DC motor)
 void setMotor(int lState, int rState)
 {
 	digitalWrite(lMotor,lState);
 	digitalWrite(rMotor,rState);
-}
 }
