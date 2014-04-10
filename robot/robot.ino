@@ -12,8 +12,10 @@
 
 #include <SPI.h>
 
-#define MOTOR_START	0x02
-#define MOTOR_STOP	0x01
+#define MOTOR_START	0x01
+#define MOTOR_STOP	0x02
+#define LED_ON		0x03
+#define LED_OFF		0x04
 
 // Analog pins for sonar sensors
 int fSonar = A0;
@@ -21,8 +23,10 @@ int lSonar = A1;
 int rSonar = A2;
 
 // Digital pins for H-Bridge Logic (DC motors)
+/*
 int lMotor = 52;
 int rMotor = 50;
+*/
 
 boolean turnBool = false;
 int baudRate = 9600;
@@ -33,46 +37,58 @@ int sensorValue = 0;
 const int sensorRange = 50;	// what is this in cm?
 const boolean debug = true;
 
-volatile boolean motorsAllowed = true;
+volatile boolean motorsAllowed = false;
 
 void setup()
 {
 	// initialize pins and motors
 	if( debug )
 		Serial.begin(baudRate);
+        /*
 	pinMode(lMotor, OUTPUT);
 	pinMode(rMotor, OUTPUT);
 	setMotor(LOW,LOW);
+        */
 	
 	// initialize SPI
-	
-}
-
-// Interrupt Service Routing (ISR) for Serial Port Interface (SPI)
-ISR(SPI_STC_vect)
-{
-	byte b = SPDR;	// read byte from SPI Data Register
-	
-	if( b==MOTOR_START )
-		motorsAllowed = true;
-	else if( b==MOTOR_STOP )
-		motorsAllowed = false;
+	SPI.begin(spiPin);
 }
 
 void loop()
 {
+	// check SPI
+	byte b = SPI.transfer(spiPin,0x00);
+	switch(b)
+	{
+		case MOTOR_START:
+			motorsAllowed = true;
+			break;
+		case MOTOR_STOP:
+			motorsAllowed = false;
+			//setMotor(LOW,LOW);
+			break;
+		case LED_ON:
+			break;
+		case LED_OFF:
+			break;
+	}
+
+	// motor control
+        /*
 	if( !motorsAllowed )
 		setMotor(LOW,LOW);	// do not move
 	else
 	{
 		// Read front-facing sonar sensor
 		sensorValue = analogRead(fSonar);
-	
+		
+                /*
 		if( debug )
 		{
 			Serial.println(sensorValue);
 			delay(motorDelay/2);
 		}
+                */
 		
 		// If front-facing sonar is blocked, handle directional turns
 		if( sensorValue <= sensorRange )
@@ -96,11 +112,14 @@ void loop()
 			turnBool = false;
 		}
 	}
+        */
 }
 
 // Write digital value to H-Bridge (DC motor)
+/*
 void setMotor(int lState, int rState)
 {
 	digitalWrite(lMotor,lState);
 	digitalWrite(rMotor,rState);
 }
+*/
