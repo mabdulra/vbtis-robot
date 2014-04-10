@@ -42,7 +42,7 @@ const int rMotorBack = 5;
 const int ledPin = 7;
 
 //	Debug variables
-const boolean debug = true;
+const boolean debug = false;
 const int baudRate = 9600;
 
 //	Motor control variables
@@ -106,14 +106,16 @@ void loop()
 		setMotors(MOTION_NONE);
 	else
 	{
-		//	slow down the robot
-		setMotors(MOTION_NONE);
-		delay(motorDelay/2);
-		
 		//	read all sonar sensors at the start
 		unsigned int fSonarValue = analogRead(fSonar);
 		unsigned int lSonarValue = analogRead(lSonar);
 		unsigned int rSonarValue = analogRead(rSonar);
+		
+		//	"debounce"
+		delay(motorDelay/8);
+		fSonarValue = analogRead(fSonar);
+		lSonarValue = analogRead(lSonar);
+		rSonarValue = analogRead(rSonar);
 		
 		//	I wish prinf() could work for this, but alas
 		if( debug )
@@ -153,6 +155,11 @@ void loop()
 			setMotors(MOTION_FORWARD);
 			inTurn = false;
 		}
+		
+		//	slow down the robot
+		delay(motorDelay/4);
+		setMotors(MOTION_NONE);
+		delay(motorDelay);
 		
 	}
 }
