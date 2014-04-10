@@ -46,7 +46,7 @@ const boolean debug = true;
 const int baudRate = 9600;
 
 //	Motor control variables
-const int sensorRange = 50;	// what is this in cm?
+const int sensorRange = 20;	// what is this in cm?
 const int motorDelay = 300;		// milliseconds
 
 //	Logical booleans
@@ -106,10 +106,14 @@ void loop()
 		setMotors(MOTION_NONE);
 	else
 	{
+		//	slow down the robot
+		setMotors(MOTION_NONE);
+		delay(motorDelay/2);
+		
 		//	read all sonar sensors at the start
-		int fSonarValue = analogRead(fSonar);
-		int lSonarValue = analogRead(lSonar);
-		int rSonarValue = analogRead(rSonar);
+		unsigned int fSonarValue = analogRead(fSonar);
+		unsigned int lSonarValue = analogRead(lSonar);
+		unsigned int rSonarValue = analogRead(rSonar);
 		
 		//	I wish prinf() could work for this, but alas
 		if( debug )
