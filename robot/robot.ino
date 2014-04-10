@@ -42,11 +42,11 @@ const int rMotorBack = 5;
 const int ledPin = 7;
 
 //	Debug variables
-const boolean debug = true;
+const boolean debug = false;
 const int baudRate = 9600;
 
 //	Motor control variables
-const int sensorRange = 50;	// what is this in cm?
+const int sensorRange = 30;	// what is this in cm?
 const int motorDelay = 300;		// milliseconds
 
 //	Logical booleans
