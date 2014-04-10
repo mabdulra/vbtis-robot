@@ -5,121 +5,182 @@
  * Move forward while reading from sonar sensor
  * If within distance range, check left and right sonar
  * Move in direction with most room until forward is free
+ *
+ * Override autonomous control if Pi says so
+ * Communicate with Pi over SPI
+ * Light LED entirely based on whim of the Pi
  * 
- * mabdulra.net
  * (c) 2014 Muhammad Abdul-Rahim
  */
 
 #include <SPI.h>
 
-#define MOTOR_START	0x01
-#define MOTOR_STOP	0x02
-#define LED_ON		0x03
-#define LED_OFF		0x04
+//	Self-defined SPI bytes
+#define MOTOR_START		0x01
+#define MOTOR_STOP		0x02
+#define LED_ON			0x03
+#define LED_OFF			0x04
 
-// Analog pins for sonar sensors
-int fSonar = A0;
-int lSonar = A1;
-int rSonar = A2;
+//	Motor states
+#define MOTION_NONE		0x00
+#define MOTION_FORWARD	0x01
+#define MOTION_LEFT		0x02
+#define MOTION_RIGHT	0x03
 
-// Digital pins for H-Bridge Logic (DC motors)
-/*
-int lMotor = 52;
-int rMotor = 50;
-*/
+//	Analog pins for sonar sensors
+const int fSonar = A0;
+const int lSonar = A1;
+const int rSonar = A2;
 
-boolean turnBool = false;
-int baudRate = 9600;
+//	Digital pins for H-Bridge logic
+const int lMotorFront = 2;
+const int lMotorBack = 3;
+const int rMotorFront = 4;
+const int rMotorBack = 5;
 
-int motorDelay = 300;	// milliseconds
+//	Digital pin for LED
+const int ledPin = 7;
 
-int sensorValue = 0;
-const int sensorRange = 50;	// what is this in cm?
+//	Debug variables
 const boolean debug = true;
+const int baudRate = 9600;
 
-volatile boolean motorsAllowed = false;
+//	Motor control variables
+const int sensorRange = 50;	// what is this in cm?
+const int motorDelay = 300;		// milliseconds
+
+//	Logical booleans
+volatile boolean motorsAllowed = true;
+boolean inTurn = false;
 
 void setup()
 {
-	// initialize pins and motors
 	if( debug )
 		Serial.begin(baudRate);
-        /*
-	pinMode(lMotor, OUTPUT);
-	pinMode(rMotor, OUTPUT);
-	setMotor(LOW,LOW);
-        */
+	
+	//	initialize pins
+	pinMode(lMotorFront,	OUTPUT);
+	pinMode(lMotorBack,		OUTPUT);
+	pinMode(rMotorFront,	OUTPUT);
+	pinMode(rMotorBack,		OUTPUT);
+	pinMode(ledPin,			OUTPUT);
+	setMotors(MOTION_NONE);
 	
 	// initialize SPI
-	SPI.begin(spiPin);
+	pinMode(MISO,OUTPUT);
+	SPCR |= _BV(SPE);
+	SPI.attachInterrupt();
 }
 
-void loop()
+//	SPI Interrupt Service Routine
+ISR(SPI_STC_vect)
 {
-	// check SPI
-	byte b = SPI.transfer(spiPin,0x00);
+	byte b = SPDR;	// SPI Data Register
+	if( debug )
+		Serial.println(b,HEX);
+	
 	switch(b)
 	{
+		//	Motor control dictated by main loop()
 		case MOTOR_START:
 			motorsAllowed = true;
 			break;
 		case MOTOR_STOP:
 			motorsAllowed = false;
-			//setMotor(LOW,LOW);
+			setMotors(MOTION_NONE);
 			break;
+		
+		//	LED control self-contained
 		case LED_ON:
+			digitalWrite(ledPin,HIGH);
 			break;
 		case LED_OFF:
+			digitalWrite(ledPin,LOW);
 			break;
 	}
+}
 
-	// motor control
-        /*
+void loop()
+{
 	if( !motorsAllowed )
-		setMotor(LOW,LOW);	// do not move
+		setMotors(MOTION_NONE);
 	else
 	{
-		// Read front-facing sonar sensor
-		sensorValue = analogRead(fSonar);
+		//	read all sonar sensors at the start
+		int fSonarValue = analogRead(fSonar);
+		int lSonarValue = analogRead(lSonar);
+		int rSonarValue = analogRead(rSonar);
 		
-                /*
+		//	I wish prinf() could work for this, but alas
 		if( debug )
 		{
-			Serial.println(sensorValue);
-			delay(motorDelay/2);
+			Serial.print("{");
+			Serial.print(fSonarValue);
+			Serial.print(",");
+			Serial.print(lSonarValue);
+			Serial.print(",");
+			Serial.print(rSonarValue);
+			Serial.println("}");
 		}
-                */
 		
-		// If front-facing sonar is blocked, handle directional turns
-		if( sensorValue <= sensorRange )
+		//	if the front sonar is blocked, handle directional turn
+		if( fSonarValue < sensorRange )
 		{
-			if( !turnBool )
+			//	force a slight delay before starting turn
+			if( !inTurn )
 			{
-				setMotor(LOW,LOW);
-				delay(motorDelay);	// stop before turning
-				turnBool = true;
+				setMotors(MOTION_NONE);
+				delay(motorDelay);
+				inTurn = true;
+				
+				//	update left and right sonar readings due to delay
+				lSonarValue = analogRead(lSonar);
+				rSonarValue = analogRead(rSonar);
 			}
 			
-			// Determine turning direction
-			if( analogRead(rSonar) > analogRead(lSonar) )
-				setMotor(HIGH,LOW);	// turning right (left=HIGH, right=LOW)
+			//	determine direction to turn in and turn
+			if( rSonarValue > lSonarValue )
+				setMotors(MOTION_RIGHT);
 			else
-				setMotor(LOW,HIGH);	// turning left (left=LOW, right=HIGH)
+				setMotors(MOTION_LEFT);
 		}
 		else
 		{
-			setMotor(HIGH,HIGH);		// move forward
-			turnBool = false;
+			setMotors(MOTION_FORWARD);
+			inTurn = false;
 		}
+		
 	}
-        */
 }
 
-// Write digital value to H-Bridge (DC motor)
-/*
-void setMotor(int lState, int rState)
+//	Set motor based on which direction you want to go (obfuscation!)
+void setMotors(byte state)
 {
-	digitalWrite(lMotor,lState);
-	digitalWrite(rMotor,rState);
+	switch(state)
+	{
+		case MOTION_NONE:
+			digitalWrite(lMotorFront,	LOW);
+			digitalWrite(lMotorBack,	LOW);
+			digitalWrite(rMotorFront,	LOW);
+			digitalWrite(rMotorBack,	LOW);
+			break;
+		case MOTION_FORWARD:
+			digitalWrite(lMotorFront,	HIGH);
+			digitalWrite(lMotorBack,	LOW);
+			digitalWrite(rMotorFront,	HIGH);
+			digitalWrite(rMotorBack,	LOW);
+			break;
+		case MOTION_LEFT:
+			digitalWrite(lMotorFront,	LOW);
+			digitalWrite(lMotorBack,	HIGH);
+			digitalWrite(rMotorFront,	HIGH);
+			digitalWrite(rMotorBack,	LOW);
+			break;
+		case MOTION_RIGHT:
+			digitalWrite(lMotorFront,	HIGH);
+			digitalWrite(lMotorBack,	LOW);
+			digitalWrite(rMotorFront,	LOW);
+			digitalWrite(rMotorBack,	HIGH);
+			break;
+	}
 }
-*/
