@@ -42,16 +42,21 @@ const int rMotorBack = 5;
 const int ledPin = 7;
 
 //	Debug variables
-const boolean debug = false;
+const boolean debug = true;
 const int baudRate = 9600;
 
 //	Motor control variables
-const int sensorRange = 20;	// what is this in cm?
+const int sensorRange = 50;	// what is this in cm?
 const int motorDelay = 300;		// milliseconds
 
 //	Logical booleans
 volatile boolean motorsAllowed = true;
 boolean inTurn = false;
+
+//	read all sonar sensors at the start
+unsigned int fSonarValue;
+unsigned int lSonarValue;
+unsigned int rSonarValue;
 
 void setup()
 {
@@ -107,12 +112,6 @@ void loop()
 	else
 	{
 		//	read all sonar sensors at the start
-		unsigned int fSonarValue = analogRead(fSonar);
-		unsigned int lSonarValue = analogRead(lSonar);
-		unsigned int rSonarValue = analogRead(rSonar);
-		
-		//	"debounce"
-		delay(motorDelay/8);
 		fSonarValue = analogRead(fSonar);
 		lSonarValue = analogRead(lSonar);
 		rSonarValue = analogRead(rSonar);
@@ -138,10 +137,6 @@ void loop()
 				setMotors(MOTION_NONE);
 				delay(motorDelay);
 				inTurn = true;
-				
-				//	update left and right sonar readings due to delay
-				lSonarValue = analogRead(lSonar);
-				rSonarValue = analogRead(rSonar);
 			}
 			
 			//	determine direction to turn in and turn
